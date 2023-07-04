@@ -12,6 +12,9 @@ Simple Key-Value database use the LSM Tree
 ## TODO
 - [ ] Change store data object type from JSON to binary
 - [ ] Persistency store from the sst file which when the program restart can build the sst from the old data
+- [ ] bloom filter prevent the Read the not exist data
 - [ ] integration test for the database
 - [ ] benchmark test for the database
-- [ ] TCP connect option instead of CLI 
+- [ ] TCP connect option instead of CLI
+- [ ] Key Value Transaction
+- [ ] Cluster 
