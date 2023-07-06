@@ -1,4 +1,4 @@
-module simple-memDB
+module simple-Key-Value-DB
 
 go 1.19
 

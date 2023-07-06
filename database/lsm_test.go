@@ -49,10 +49,7 @@ func Test_SimpleLSM(t *testing.T) {
 	}
 
 	for i := 0; i < len(keySet)/1000; i++ {
-		v, exist := ssTable.Get([]byte(keySet[i]))
-
-		data := ByteJsonToDataObject(v)
-
+		data, exist := ssTable.Get([]byte(keySet[i]))
 		require.True(t, exist)
 		require.Equal(t, valueSet[i], string(data.Value))
 	}

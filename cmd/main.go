@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"simple-memDB/database"
+	"simple-Key-Value-DB/database"
 )
 
 func main() {

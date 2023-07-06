@@ -3,6 +3,7 @@ package database
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -47,7 +48,7 @@ func NewSSTableManager(level int) *SSTableManager {
 
 }
 
-func (s *SSTableManager) Get(key []byte) ([]byte, bool) {
+func (s *SSTableManager) Get(key []byte) (*DataObject, bool) {
 	iterLevel := 0
 
 	for iterLevel < s.level {
@@ -62,7 +63,8 @@ func (s *SSTableManager) Get(key []byte) ([]byte, bool) {
 		currentSSTable := s.ssTableMetaTable[iterLevel].ssTable
 
 		for currentSSTable != nil {
-			file, err := os.Open(defaultSSTTableDir + currentSSTable.tableFileName)
+
+			objectData, err := s.readSSTable(currentSSTable.tableFileName)
 
 			if err != nil {
 				s.ssTableMetaTable[iterLevel].rw.RUnlock()
@@ -70,32 +72,21 @@ func (s *SSTableManager) Get(key []byte) ([]byte, bool) {
 				return nil, false
 			}
 
-			reader := bufio.NewReader(file)
+			if err != nil {
+				s.ssTableMetaTable[iterLevel].rw.RUnlock()
+				fmt.Println(err)
+				return nil, false
+			}
 
-			for {
-				line, _, err := reader.ReadLine()
-
-				if err != nil {
-					if err == io.EOF {
-						break
-					}
-					s.ssTableMetaTable[iterLevel].rw.RUnlock()
-					fmt.Println(err)
-					return nil, false
-				}
-				data := ByteJsonToDataObject(line)
-
+			for _, data := range objectData {
 				if bytes.Compare(data.Key, key) == 0 {
-					file.Close()
 					s.ssTableMetaTable[iterLevel].rw.RUnlock()
-					return line, true
+					return data, true
 				}
-
 			}
 
 			currentSSTable = currentSSTable.next
 
-			file.Close()
 		}
 
 		s.ssTableMetaTable[iterLevel].rw.RUnlock()
@@ -133,7 +124,7 @@ func (s *SSTableManager) FlushToSSTable(memTable *MemTables) {
 
 	keys, values := memTable.GetAll()
 
-	jsonBytes := make([][]byte, len(keys))
+	jsonBytes := make([][]byte, 0, len(keys))
 
 	dupMap := make(map[string]int)
 
@@ -142,13 +133,12 @@ func (s *SSTableManager) FlushToSSTable(memTable *MemTables) {
 
 		if v, exist := dupMap[string(key)]; exist {
 			if values[v].timeStamp < values[i].timeStamp {
-				jsonBytes[v] = dataObject.ToJsonByte()
+				jsonBytes[v] = dataObject.ToBinary()
 			} else {
 				continue
 			}
 		} else {
-			jsonBytes = append(jsonBytes, dataObject.ToJsonByte())
-			jsonBytes = append(jsonBytes, []byte("\n"))
+			jsonBytes = append(jsonBytes, dataObject.ToBinary())
 			dupMap[string(key)] = i
 		}
 	}
@@ -258,58 +248,21 @@ func (s *SSTableManager) mergeTwoSSTable(s1, s2 *ssTable, level int) {
 
 	s.insertToSSTable(level, newSSTable)
 
-	s1File, err := os.Open(defaultSSTTableDir + s1.tableFileName)
+	s1Data, err := s.readSSTable(s1.tableFileName)
 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	s2File, err := os.Open(defaultSSTTableDir + s2.tableFileName)
+	s2Data, err := s.readSSTable(s2.tableFileName)
 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	defer s1File.Close()
-	defer s2File.Close()
-
-	mergeData := make([]*DataObject, 0, s1.size+s2.size)
-
-	s1Reader := bufio.NewReader(s1File)
-
-	for {
-		line, err := s1Reader.ReadBytes('\n')
-
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		mergeData = append(mergeData, ByteJsonToDataObject(line))
-	}
-
-	s2Reader := bufio.NewReader(s2File)
-
-	for {
-		line, err := s2Reader.ReadBytes('\n')
-
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		mergeData = append(mergeData, ByteJsonToDataObject(line))
-	}
+	mergeData := append(s1Data, s2Data...)
 
 	sort.Slice(mergeData, func(i, j int) bool {
 		return bytes.Compare(mergeData[i].Key, mergeData[j].Key) < 0
@@ -327,7 +280,7 @@ func (s *SSTableManager) mergeTwoSSTable(s1, s2 *ssTable, level int) {
 	defer file.Close()
 
 	for _, m := range mergeData {
-		file.Write(append(m.ToJsonByte(), []byte("\n")...))
+		file.Write(m.ToBinary())
 	}
 
 	file.Sync()
@@ -415,4 +368,52 @@ func (s *SSTableManager) PrintLevelData(level int) {
 		ss = ss.next
 	}
 
+}
+
+func (s *SSTableManager) readSSTable(fileName string) ([]*DataObject, error) {
+	file, err := os.Open(defaultSSTTableDir + fileName)
+	defer file.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	dataOffset := 0
+
+	dataList := make([]*DataObject, 0)
+
+	for {
+
+		lengthByte := make([]byte, totalLengthSize)
+		_, err := file.Read(lengthByte)
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		length := binary.BigEndian.Uint32(lengthByte)
+
+		byteData := make([]byte, int(length))
+
+		_, err = file.Read(byteData)
+
+		dataOffset = dataOffset + int(totalLengthSize) + int(length)
+
+		binaryData := append(lengthByte, byteData...)
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		dataList = append(dataList, BinaryToDataObject(binaryData))
+
+	}
+
+	return dataList, nil
 }

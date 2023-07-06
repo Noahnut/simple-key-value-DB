@@ -49,7 +49,7 @@ func (d *DB) Get(key string) ([]byte, bool) {
 		ssTableValue, exist := d.ssTable.Get([]byte(key))
 
 		if exist {
-			value = ByteJsonToDataObject(ssTableValue).Value
+			value = ssTableValue.Value
 		}
 	}
 

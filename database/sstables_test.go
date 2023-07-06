@@ -28,11 +28,9 @@ func Test_FlushToSSTable_Simple(t *testing.T) {
 
 	ssTableManager.FlushToSSTable(memTables)
 
-	value, exist := ssTableManager.Get([]byte("key1"))
+	data, exist := ssTableManager.Get([]byte("key1"))
 
 	require.True(t, exist)
-
-	data := ByteJsonToDataObject(value)
 
 	require.Equal(t, "key1-value", string(data.Value))
 	require.Equal(t, "key1", string(data.Key))
@@ -40,10 +38,8 @@ func Test_FlushToSSTable_Simple(t *testing.T) {
 	_, exist = ssTableManager.Get([]byte("key6"))
 	require.False(t, exist)
 
-	value, exist = ssTableManager.Get([]byte("key4"))
+	data, exist = ssTableManager.Get([]byte("key4"))
 	require.True(t, exist)
-
-	data = ByteJsonToDataObject(value)
 
 	require.Equal(t, "new-value", string(data.Value))
 	require.Equal(t, "key4", string(data.Key))
@@ -109,15 +105,13 @@ func Test_FlushToSSTable_ManyMemTable(t *testing.T) {
 
 	ssTableManager.FlushToSSTable(newMemTableTwo)
 
-	value, exist := ssTableManager.Get([]byte("key11"))
+	data, exist := ssTableManager.Get([]byte("key11"))
 
-	data := ByteJsonToDataObject(value)
 	require.True(t, exist)
 	require.Equal(t, "key11-value", string(data.Value))
 
-	value, exist = ssTableManager.Get([]byte("key4"))
+	data, exist = ssTableManager.Get([]byte("key4"))
 
-	data = ByteJsonToDataObject(value)
 	require.True(t, exist)
 	require.Equal(t, "key4-value", string(data.Value))
 
@@ -187,23 +181,17 @@ func Test_Merge_Simple(t *testing.T) {
 
 	ssTableManager.Merge(0)
 
-	value, exist := ssTableManager.Get([]byte("key1"))
-
-	data := ByteJsonToDataObject(value)
+	data, exist := ssTableManager.Get([]byte("key1"))
 
 	require.True(t, exist)
 	require.Equal(t, "key1-value", string(data.Value))
 
-	value, exist = ssTableManager.Get([]byte("key5"))
-
-	data = ByteJsonToDataObject(value)
+	data, exist = ssTableManager.Get([]byte("key5"))
 
 	require.True(t, exist)
 	require.Equal(t, "key5-value", string(data.Value))
 
-	value, exist = ssTableManager.Get([]byte("key9"))
-
-	data = ByteJsonToDataObject(value)
+	data, exist = ssTableManager.Get([]byte("key9"))
 
 	require.True(t, exist)
 	require.Equal(t, "key9-value", string(data.Value))
@@ -254,11 +242,8 @@ func Test_Merge_MultiLevel(t *testing.T) {
 	ssTableManager.Merge(1)
 
 	for _, key := range testDataSet {
-		value, exist := ssTableManager.Get(key)
+		data, exist := ssTableManager.Get(key)
 		require.True(t, exist, key)
-
-		data := ByteJsonToDataObject(value)
-
 		require.Equal(t, string(key)+"-value", string(data.Value))
 	}
 }
