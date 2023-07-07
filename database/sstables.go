@@ -6,14 +6,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 )
 
-const ssTableFileNameFormat = "level_%d_%v.sst"
+const ssTableFileNameFormat = "level_%d_%s.sst"
 const defaultSSTTableDir = "./bin/sst/"
 
 type ssTable struct {
@@ -45,7 +47,38 @@ func NewSSTableManager(level int) *SSTableManager {
 		ssTableMetaTable:     make([]ssTableMeta, level),
 		mergeRequest:         make(chan struct{}, 1),
 	}
+}
 
+func (s *SSTableManager) RebuildFromOldFile() {
+	files, err := ioutil.ReadDir(defaultSSTTableDir)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		var (
+			level int
+		)
+
+		fileName := file.Name()
+
+		levelStr := strings.Split(fileName, "_")[1]
+
+		fmt.Sscanf(levelStr, "%d", &level)
+
+		newSSTable := &ssTable{
+			tableFileName: file.Name(),
+			size:          int(file.Size()),
+		}
+
+		s.insertToSSTable(level, newSSTable)
+	}
 }
 
 func (s *SSTableManager) Get(key []byte) (*DataObject, bool) {
@@ -296,7 +329,9 @@ func (s *SSTableManager) insertToSSTable(level int, ss *ssTable) {
 
 	s.ssTableMetaTable[level].tableNum++
 
-	ss.tableFileName = fmt.Sprintf(ssTableFileNameFormat, level, uuid.New().String())
+	if ss.tableFileName == "" {
+		ss.tableFileName = fmt.Sprintf(ssTableFileNameFormat, level, uuid.New().String())
+	}
 
 	if s.ssTableMetaTable[level].ssTable == nil {
 		s.ssTableMetaTable[level].ssTable = ss

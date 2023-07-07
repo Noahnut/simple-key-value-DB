@@ -247,3 +247,78 @@ func Test_Merge_MultiLevel(t *testing.T) {
 		require.Equal(t, string(key)+"-value", string(data.Value))
 	}
 }
+
+func Test_RebuildFromOldFile(t *testing.T) {
+	memTables := NewMemTables(100)
+
+	keys := [][]byte{
+		[]byte("key1"),
+		[]byte("key2"),
+		[]byte("key3"),
+		[]byte("key4"),
+	}
+
+	for _, key := range keys {
+		memTables.Insert(key, append(key, []byte("-value")...))
+	}
+
+	ssTableManager := NewSSTableManager(5)
+
+	defer func() {
+
+		for i := 0; i < ssTableManager.level; i++ {
+			iter := ssTableManager.ssTableMetaTable[i].ssTable
+
+			for iter != nil {
+				os.Remove(defaultSSTTableDir + iter.tableFileName)
+				iter = iter.next
+			}
+		}
+
+	}()
+
+	ssTableManager.FlushToSSTable(memTables)
+
+	newMemTableOne := NewMemTables(100)
+
+	keys = [][]byte{
+		[]byte("key5"),
+		[]byte("key6"),
+		[]byte("key7"),
+		[]byte("key8"),
+	}
+
+	for _, key := range keys {
+		newMemTableOne.Insert(key, append(key, []byte("-value")...))
+	}
+
+	ssTableManager.FlushToSSTable(newMemTableOne)
+
+	newMemTableTwo := NewMemTables(100)
+
+	keys = [][]byte{
+		[]byte("key9"),
+		[]byte("key10"),
+		[]byte("key11"),
+		[]byte("key12"),
+	}
+
+	for _, key := range keys {
+		newMemTableTwo.Insert(key, append(key, []byte("-value")...))
+	}
+
+	ssTableManager.FlushToSSTable(newMemTableTwo)
+
+	ssTableManager.Merge(0)
+
+	newS := NewSSTableManager(5)
+
+	newS.RebuildFromOldFile()
+
+	data, exist := newS.Get([]byte("key1"))
+	require.True(t, exist)
+
+	require.Equal(t, "key1-value", string(data.Value))
+	require.Equal(t, "key1", string(data.Key))
+
+}
