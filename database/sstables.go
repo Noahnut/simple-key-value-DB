@@ -199,6 +199,8 @@ func (s *SSTableManager) FlushToSSTable(memTable *MemTables) {
 
 	file.Sync()
 
+	memTable.wal.Delete()
+
 	if currentTableNum >= (s.defaultLevelTableNum >> levelOne) {
 		s.mergeRequest <- struct{}{}
 	}

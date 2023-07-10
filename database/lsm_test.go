@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,19 @@ func Test_SimpleLSM(t *testing.T) {
 	LogMergeTreeBackGroundWorker(ctx, lsmChan, ssTable)
 
 	index := 0
+
+	defer func() {
+
+		for i := 0; i < ssTable.level; i++ {
+			iter := ssTable.ssTableMetaTable[i].ssTable
+
+			for iter != nil {
+				os.Remove(defaultSSTTableDir + iter.tableFileName)
+				iter = iter.next
+			}
+		}
+
+	}()
 
 	keySet := make([]string, 0)
 	valueSet := make([]string, 0)

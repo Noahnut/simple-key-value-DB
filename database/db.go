@@ -73,6 +73,8 @@ func (d *DB) insert(key, value []byte) error {
 		return errors.New("")
 	}
 
+	d.memTable.wal.Write(key, value)
+
 	if d.memTable.GetSize() >= d.memTable.GetSizeLimit() {
 		d.rw.Lock()
 		d.lsmChannel <- d.memTable

@@ -19,16 +19,31 @@ type MemTables struct {
 	sizeLimit int64
 	skipList  *SkipList[[]byte, *valueType]
 	rw        sync.RWMutex
+	wal       *WAL
 }
 
 func NewMemTables(sizeLimit int64) *MemTables {
 
 	comparator := &byteComparator{}
 
-	return &MemTables{
+	memTable := &MemTables{
 		sizeLimit: sizeLimit,
 		skipList:  NewSkipList[[]byte, *valueType](comparator),
 	}
+
+	memTable.wal = NewWAL()
+
+	keys, values, haveOldData := memTable.wal.RestoreOldData()
+
+	if haveOldData {
+		for i := 0; i < len(keys); i++ {
+			memTable.Insert(keys[i], values[i])
+		}
+	} else {
+		memTable.wal.CreateNewWAL()
+	}
+
+	return memTable
 }
 
 func (m *MemTables) GetSizeLimit() int64 {

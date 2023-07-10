@@ -13,7 +13,7 @@ Simple Key-Value database use the LSM Tree
 
 - [X] Change store data object type from JSON to binary
 - [X] Persistency store from the sst file which when the program restart can build the sst from the old data
-- [ ] WAL (Write Ahead Log) Prevent the Data loss when data still in the memory table
+- [X] WAL (Write Ahead Log) Prevent the Data loss when data still in the memory table
 - [ ] bloom filter prevent the Read the not exist data
 - [ ] integration test for the database
 - [ ] benchmark test for the database
