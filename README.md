@@ -18,6 +18,7 @@ Simple Key-Value database use the LSM Tree
 - [ ] integration test for the database
 - [ ] benchmark test for the database
 - [ ] TCP connect option instead of CLI
+- [ ] CLI database client with auto complete
 - [ ] Buffer Pool
 - [ ] Key Value Transaction
 - [ ] Cluster
