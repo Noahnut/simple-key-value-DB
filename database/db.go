@@ -29,6 +29,8 @@ func Open() (*DB, error) {
 
 	LogMergeTreeBackGroundWorker(ctx, db.lsmChannel, db.ssTable)
 
+	//TODO: load the sstables from the disk
+
 	return db, nil
 }
 
